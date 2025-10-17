@@ -24,7 +24,7 @@ if errorlevel 1 (
 REM Build the executable
 echo.
 echo Building executable with PyInstaller...
-pyinstaller --onefile --name "AdvancedCalculator" ..\src\calculator.py
+pyinstaller --onefile --name "AdvancedCalculator" --distpath ..\dist ..\src\calculator.py
 
 if errorlevel 1 (
     echo Error: Failed to build executable
@@ -34,6 +34,6 @@ if errorlevel 1 (
 
 echo.
 echo Build completed successfully!
-echo The executable is located in the 'dist' folder: dist\AdvancedCalculator.exe
+echo The executable is located in the main folder: ..\dist\AdvancedCalculator.exe
 echo.
 pause

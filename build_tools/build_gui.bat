@@ -24,7 +24,7 @@ if errorlevel 1 (
 REM Build the GUI executable with clean build
 echo.
 echo Building GUI executable with PyInstaller...
-pyinstaller --onefile --windowed --name "AdvancedCalculatorGUI" ..\src\calculator_gui.py --clean
+pyinstaller --onefile --windowed --name "AdvancedCalculatorGUI" --distpath ..\dist ..\src\calculator_gui.py --clean
 
 if errorlevel 1 (
     echo Error: Failed to build GUI executable
@@ -34,7 +34,7 @@ if errorlevel 1 (
 
 echo.
 echo Build completed successfully!
-echo The GUI executable is located in the 'dist' folder: dist\AdvancedCalculatorGUI.exe
+echo The GUI executable is located in the main folder: ..\dist\AdvancedCalculatorGUI.exe
 echo.
 echo Note: The --windowed flag ensures no console window appears when running the GUI.
 echo.

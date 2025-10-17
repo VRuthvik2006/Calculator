@@ -72,7 +72,7 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m pytest tests/test_calculator.py -v --cov=src --cov-report=xml
+        python tests/test_simple.py
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
@@ -199,7 +199,7 @@ jobs:
 
     - name: Run Bandit security scan
       run: |
-        bandit -r calculator.py calculator_gui.py -f json -o bandit-report.json
+        bandit -r src/ -f json -o bandit-report.json
       continue-on-error: true
 
     - name: Run Safety check

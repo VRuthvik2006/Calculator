@@ -1,0 +1,227 @@
+name: Scheduled Maintenance & Backup
+
+on:
+  schedule:
+    # Daily backup at 2 AM UTC
+    - cron: '0 2 * * *'
+    # Weekly dependency check on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Type of backup to perform'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+        - daily
+        - weekly
+        - full
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  scheduled-backup:
+    name: Scheduled Backup
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set backup type
+      id: backup-type
+      run: |
+        if [ "${{ github.event_name }}" == "schedule" ]; then
+          if [ "${{ github.event.schedule }}" == "0 2 * * *" ]; then
+            echo "type=daily" >> $GITHUB_OUTPUT
+          else
+            echo "type=weekly" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "type=${{ github.event.inputs.backup_type }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create backup
+      run: |
+        BACKUP_TYPE="${{ steps.backup-type.outputs.type }}"
+        TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+        BACKUP_NAME="calculator_${BACKUP_TYPE}_backup_${TIMESTAMP}"
+        
+        mkdir -p backups
+        
+        # Create different backup types
+        case $BACKUP_TYPE in
+          "daily")
+            # Light backup - source code only
+            tar -czf "backups/${BACKUP_NAME}.tar.gz" \
+              --exclude='dist' \
+              --exclude='build' \
+              --exclude='__pycache__' \
+              --exclude='.git' \
+              --exclude='*.pyc' \
+              calculator*.py requirements.txt README.md *.md
+            ;;
+          "weekly")
+            # Full backup - everything except git and build artifacts
+            tar -czf "backups/${BACKUP_NAME}.tar.gz" \
+              --exclude='dist' \
+              --exclude='build' \
+              --exclude='__pycache__' \
+              --exclude='.git' \
+              --exclude='*.pyc' \
+              .
+            ;;
+          "full")
+            # Complete backup including git history
+            tar -czf "backups/${BACKUP_NAME}.tar.gz" \
+              --exclude='dist' \
+              --exclude='build' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              .
+            ;;
+        esac
+        
+        # Create backup metadata
+        cat > "backups/${BACKUP_NAME}_metadata.json" << EOF
+        {
+          "backup_type": "${BACKUP_TYPE}",
+          "timestamp": "$(date -Iseconds)",
+          "commit_hash": "${{ github.sha }}",
+          "branch": "${{ github.ref_name }}",
+          "file_count": $(tar -tzf "backups/${BACKUP_NAME}.tar.gz" | wc -l),
+          "size_bytes": $(stat -c%s "backups/${BACKUP_NAME}.tar.gz")
+        }
+        EOF
+
+    - name: Upload backup
+      uses: actions/upload-artifact@v3
+      with:
+        name: scheduled-backup-${{ steps.backup-type.outputs.type }}
+        path: backups/
+        retention-days: ${{ steps.backup-type.outputs.type == 'daily' && 30 || steps.backup-type.outputs.type == 'weekly' && 90 || 365 }}
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * 0' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-audit safety pipdeptree
+
+    - name: Check for dependency vulnerabilities
+      run: |
+        echo "## Dependency Audit Report" > dependency-report.md
+        echo "Generated on: $(date)" >> dependency-report.md
+        echo "" >> dependency-report.md
+        
+        echo "### pip-audit results:" >> dependency-report.md
+        pip-audit --format=json --output=pip-audit.json || true
+        if [ -f pip-audit.json ]; then
+          pip-audit --format=markdown >> dependency-report.md || true
+        fi
+        
+        echo "" >> dependency-report.md
+        echo "### Safety check results:" >> dependency-report.md
+        safety check --json --output=safety.json || true
+        
+        echo "" >> dependency-report.md
+        echo "### Dependency tree:" >> dependency-report.md
+        echo '```' >> dependency-report.md
+        pipdeptree >> dependency-report.md
+        echo '```' >> dependency-report.md
+
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-security-report
+        path: |
+          dependency-report.md
+          pip-audit.json
+          safety.json
+        retention-days: 30
+
+  cleanup-old-artifacts:
+    name: Cleanup Old Artifacts
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * 0' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Delete old workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        retain_days: 30
+        keep_minimum_runs: 10
+
+  health-check:
+    name: Repository Health Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check repository health
+      run: |
+        echo "## Repository Health Report" > health-report.md
+        echo "Generated on: $(date)" >> health-report.md
+        echo "" >> health-report.md
+        
+        # Check file sizes
+        echo "### Large files (>1MB):" >> health-report.md
+        find . -type f -size +1M -not -path "./.git/*" -not -path "./dist/*" -not -path "./build/*" | head -10 >> health-report.md || echo "No large files found" >> health-report.md
+        
+        echo "" >> health-report.md
+        
+        # Check code quality metrics
+        echo "### Code metrics:" >> health-report.md
+        echo "- Python files: $(find . -name '*.py' -not -path "./.git/*" | wc -l)" >> health-report.md
+        echo "- Total lines of Python code: $(find . -name '*.py' -not -path "./.git/*" -exec wc -l {} + | tail -1 | awk '{print $1}')" >> health-report.md
+        echo "- Documentation files: $(find . -name '*.md' -not -path "./.git/*" | wc -l)" >> health-report.md
+        
+        echo "" >> health-report.md
+        
+        # Check for common issues
+        echo "### Potential issues:" >> health-report.md
+        
+        # Check for hardcoded paths
+        if grep -r "C:\\" . --include="*.py" >/dev/null 2>&1; then
+          echo "- ⚠️ Hardcoded Windows paths found" >> health-report.md
+        else
+          echo "- ✅ No hardcoded Windows paths" >> health-report.md
+        fi
+        
+        # Check for TODO/FIXME comments
+        TODO_COUNT=$(grep -r "TODO\|FIXME" . --include="*.py" | wc -l)
+        echo "- TODO/FIXME comments: $TODO_COUNT" >> health-report.md
+        
+        # Check requirements.txt exists and is not empty
+        if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+          echo "- ✅ requirements.txt exists and not empty" >> health-report.md
+        else
+          echo "- ⚠️ requirements.txt missing or empty" >> health-report.md
+        fi
+
+    - name: Upload health report
+      uses: actions/upload-artifact@v3
+      with:
+        name: repository-health-report
+        path: health-report.md
+        retention-days: 30

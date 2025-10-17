@@ -1,0 +1,332 @@
+name: Calculator CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+        - development
+        - release
+
+env:
+  PYTHON_VERSION: '3.13'
+  PROJECT_NAME: 'AdvancedCalculatorGUI'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8 black isort
+
+    - name: Lint code
+      run: |
+        flake8 calculator.py calculator_gui.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 calculator.py calculator_gui.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Format check
+      run: |
+        black --check calculator.py calculator_gui.py
+        isort --check-only calculator.py calculator_gui.py
+
+    - name: Run tests
+      run: |
+        python -m pytest test_expressions.py -v --cov=calculator --cov=calculator_gui --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  build-console:
+    name: Build Console Calculator
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build console executable
+      run: |
+        pyinstaller --onefile calculator.py --name "Calculator-Console-${{ matrix.os }}"
+
+    - name: Upload console artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: calculator-console-${{ matrix.os }}
+        path: |
+          dist/Calculator-Console-*
+        retention-days: 30
+
+  build-gui:
+    name: Build GUI Calculator
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install system dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-tk
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build GUI executable
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" == "Windows" ]; then
+          pyinstaller --onefile --windowed calculator_gui.py --name "${{ env.PROJECT_NAME }}-Windows"
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          pyinstaller --onefile --windowed calculator_gui.py --name "${{ env.PROJECT_NAME }}-macOS"
+        else
+          pyinstaller --onefile calculator_gui.py --name "${{ env.PROJECT_NAME }}-Linux"
+        fi
+
+    - name: Create release package
+      shell: bash
+      run: |
+        mkdir -p release-package
+        cp dist/${{ env.PROJECT_NAME }}-* release-package/
+        cp README.md release-package/
+        cp requirements.txt release-package/
+        
+        # Create version info
+        echo "Build Date: $(date)" > release-package/build-info.txt
+        echo "Platform: ${{ runner.os }}" >> release-package/build-info.txt
+        echo "Python Version: ${{ env.PYTHON_VERSION }}" >> release-package/build-info.txt
+        echo "Commit: ${{ github.sha }}" >> release-package/build-info.txt
+
+    - name: Upload GUI artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: calculator-gui-${{ runner.os }}
+        path: release-package/
+        retention-days: 30
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+
+    - name: Run Bandit security scan
+      run: |
+        bandit -r calculator.py calculator_gui.py -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Run Safety check
+      run: |
+        safety check --json --output safety-report.json
+      continue-on-error: true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
+
+  backup:
+    name: Automated Backup
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Create backup archive
+      run: |
+        # Create timestamped backup
+        TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+        BACKUP_NAME="calculator_backup_${TIMESTAMP}"
+        
+        # Create backup directory
+        mkdir -p backups
+        
+        # Archive source code (excluding build artifacts)
+        tar -czf "backups/${BACKUP_NAME}.tar.gz" \
+          --exclude='dist' \
+          --exclude='build' \
+          --exclude='__pycache__' \
+          --exclude='.git' \
+          --exclude='*.pyc' \
+          .
+        
+        # Create backup manifest
+        echo "Backup created: $(date)" > backups/backup-manifest.txt
+        echo "Commit: ${{ github.sha }}" >> backups/backup-manifest.txt
+        echo "Branch: ${{ github.ref_name }}" >> backups/backup-manifest.txt
+        echo "Files included:" >> backups/backup-manifest.txt
+        tar -tzf "backups/${BACKUP_NAME}.tar.gz" >> backups/backup-manifest.txt
+
+    - name: Upload backup artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: automated-backup
+        path: backups/
+        retention-days: 90
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-console, build-gui, security-scan]
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Create release assets
+      run: |
+        # Create release directory
+        mkdir -p release-assets
+        
+        # Package console versions
+        for os in ubuntu-latest windows-latest macos-latest; do
+          if [ -d "calculator-console-${os}" ]; then
+            cd "calculator-console-${os}"
+            zip -r "../release-assets/Calculator-Console-${os}.zip" .
+            cd ..
+          fi
+        done
+        
+        # Package GUI versions
+        for os in Linux Windows macOS; do
+          if [ -d "calculator-gui-${os}" ]; then
+            cd "calculator-gui-${os}"
+            zip -r "../release-assets/Calculator-GUI-${os}.zip" .
+            cd ..
+          fi
+        done
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: release-assets/*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [test, build-console, build-gui, security-scan, backup]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: ${{ needs.test.result == 'success' && needs.build-console.result == 'success' && needs.build-gui.result == 'success' }}
+      run: |
+        echo "✅ Pipeline completed successfully!"
+        echo "- Tests: ${{ needs.test.result }}"
+        echo "- Console Build: ${{ needs.build-console.result }}"
+        echo "- GUI Build: ${{ needs.build-gui.result }}"
+        echo "- Security Scan: ${{ needs.security-scan.result }}"
+        echo "- Backup: ${{ needs.backup.result }}"
+
+    - name: Notify on failure
+      if: ${{ needs.test.result == 'failure' || needs.build-console.result == 'failure' || needs.build-gui.result == 'failure' }}
+      run: |
+        echo "❌ Pipeline failed!"
+        echo "- Tests: ${{ needs.test.result }}"
+        echo "- Console Build: ${{ needs.build-console.result }}"
+        echo "- GUI Build: ${{ needs.build-gui.result }}"
+        echo "- Security Scan: ${{ needs.security-scan.result }}"
+        echo "- Backup: ${{ needs.backup.result }}"
+        exit 1

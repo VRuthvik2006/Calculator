@@ -36,32 +36,32 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         
         # Check Black formatting
-        if black --check calculator.py calculator_gui.py; then
+        if black --check src/calculator.py src/calculator_gui.py; then
           echo "✅ **Black formatting**: PASSED" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Black formatting**: FAILED" >> $GITHUB_STEP_SUMMARY
-          echo "Run \`black calculator.py calculator_gui.py\` to fix formatting" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`black src/calculator.py src/calculator_gui.py\` to fix formatting" >> $GITHUB_STEP_SUMMARY
         fi
         
         # Check import sorting
-        if isort --check-only calculator.py calculator_gui.py; then
+        if isort --check-only src/calculator.py src/calculator_gui.py; then
           echo "✅ **Import sorting**: PASSED" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Import sorting**: FAILED" >> $GITHUB_STEP_SUMMARY
-          echo "Run \`isort calculator.py calculator_gui.py\` to fix imports" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`isort src/calculator.py src/calculator_gui.py\` to fix imports" >> $GITHUB_STEP_SUMMARY
         fi
 
     - name: Lint code
       run: |
         # Basic linting
-        if flake8 calculator.py calculator_gui.py --count --select=E9,F63,F7,F82 --show-source --statistics; then
+        if flake8 src/calculator.py src/calculator_gui.py --count --select=E9,F63,F7,F82 --show-source --statistics; then
           echo "✅ **Critical linting**: PASSED" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Critical linting**: FAILED" >> $GITHUB_STEP_SUMMARY
         fi
         
         # Style linting (non-blocking)
-        flake8 calculator.py calculator_gui.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics > flake8-report.txt
+        flake8 src/calculator.py src/calculator_gui.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics > flake8-report.txt
         
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Linting Summary" >> $GITHUB_STEP_SUMMARY
@@ -71,7 +71,7 @@ jobs:
 
     - name: Run quick tests
       run: |
-        if python -m pytest test_expressions.py -v; then
+        if python -m pytest tests/test_calculator.py -v; then
           echo "✅ **Tests**: PASSED" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Tests**: FAILED" >> $GITHUB_STEP_SUMMARY
@@ -91,7 +91,7 @@ jobs:
         done
         
         # Check for critical file changes
-        if echo "$CHANGED_FILES" | grep -q "calculator_gui.py"; then
+        if echo "$CHANGED_FILES" | grep -q "src/calculator_gui.py"; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ **GUI calculator modified** - Ensure backward compatibility" >> $GITHUB_STEP_SUMMARY
         fi
@@ -140,7 +140,7 @@ jobs:
 
     - name: Test GUI build
       run: |
-        pyinstaller --onefile --windowed calculator_gui.py --name "TestBuild"
+        pyinstaller --onefile --windowed src/calculator_gui.py --name "TestBuild"
         
         # Check if executable was created
         if (Test-Path "dist/TestBuild.exe") {

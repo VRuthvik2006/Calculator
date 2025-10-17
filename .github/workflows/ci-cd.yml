@@ -62,17 +62,17 @@ jobs:
 
     - name: Lint code
       run: |
-        flake8 calculator.py calculator_gui.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 calculator.py calculator_gui.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 src/calculator.py src/calculator_gui.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src/calculator.py src/calculator_gui.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Format check
       run: |
-        black --check calculator.py calculator_gui.py
-        isort --check-only calculator.py calculator_gui.py
+        black --check src/calculator.py src/calculator_gui.py
+        isort --check-only src/calculator.py src/calculator_gui.py
 
     - name: Run tests
       run: |
-        python -m pytest test_expressions.py -v --cov=calculator --cov=calculator_gui --cov-report=xml
+        python -m pytest tests/test_calculator.py -v --cov=src --cov-report=xml
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
@@ -107,7 +107,7 @@ jobs:
 
     - name: Build console executable
       run: |
-        pyinstaller --onefile calculator.py --name "Calculator-Console-${{ matrix.os }}"
+        pyinstaller --onefile src/calculator.py --name "Calculator-Console-${{ matrix.os }}"
 
     - name: Upload console artifacts
       uses: actions/upload-artifact@v3
@@ -150,11 +150,11 @@ jobs:
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Windows" ]; then
-          pyinstaller --onefile --windowed calculator_gui.py --name "${{ env.PROJECT_NAME }}-Windows"
+          pyinstaller --onefile --windowed src/calculator_gui.py --name "${{ env.PROJECT_NAME }}-Windows"
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          pyinstaller --onefile --windowed calculator_gui.py --name "${{ env.PROJECT_NAME }}-macOS"
+          pyinstaller --onefile --windowed src/calculator_gui.py --name "${{ env.PROJECT_NAME }}-macOS"
         else
-          pyinstaller --onefile calculator_gui.py --name "${{ env.PROJECT_NAME }}-Linux"
+          pyinstaller --onefile src/calculator_gui.py --name "${{ env.PROJECT_NAME }}-Linux"
         fi
 
     - name: Create release package

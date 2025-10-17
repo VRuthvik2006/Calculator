@@ -9,8 +9,8 @@ import re
 import sys
 import os
 
-# Add current directory to path to import calculator modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add src directory to path to import calculator modules
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src'))
 
 try:
     import calculator
@@ -131,18 +131,19 @@ class TestFileStructure:
     def test_required_files_exist(self):
         """Test that required project files exist"""
         required_files = [
-            'calculator.py',
-            'calculator_gui.py',
+            'src/calculator.py',
+            'src/calculator_gui.py',
             'requirements.txt',
-            'README.md'
+            'docs/README.md'
         ]
         
         for file in required_files:
-            assert os.path.exists(file), f"Required file {file} is missing"
+            file_path = os.path.join('..', file) if not os.path.exists(file) else file
+            assert os.path.exists(file_path), f"Required file {file} is missing"
     
     def test_python_files_syntax(self):
         """Test that Python files have valid syntax"""
-        python_files = ['calculator.py', 'calculator_gui.py']
+        python_files = ['../src/calculator.py', '../src/calculator_gui.py']
         
         for file in python_files:
             if os.path.exists(file):
@@ -157,8 +158,9 @@ class TestFileStructure:
     
     def test_requirements_format(self):
         """Test that requirements.txt is properly formatted"""
-        if os.path.exists('requirements.txt'):
-            with open('requirements.txt', 'r') as f:
+        req_file = '../requirements.txt'
+        if os.path.exists(req_file):
+            with open(req_file, 'r') as f:
                 lines = f.readlines()
             
             for line_num, line in enumerate(lines, 1):

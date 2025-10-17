@@ -13,7 +13,7 @@ if errorlevel 1 (
 
 REM Install required dependencies
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install -r ..\requirements.txt
 
 if errorlevel 1 (
     echo Error: Failed to install dependencies
@@ -24,7 +24,7 @@ if errorlevel 1 (
 REM Build the executable
 echo.
 echo Building executable with PyInstaller...
-pyinstaller --onefile --name "AdvancedCalculator" --icon=calculator.ico calculator.py
+pyinstaller --onefile --name "AdvancedCalculator" --icon=calculator.ico ..\src\calculator.py
 
 if errorlevel 1 (
     echo Error: Failed to build executable

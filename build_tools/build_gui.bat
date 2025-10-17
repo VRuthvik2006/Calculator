@@ -13,7 +13,7 @@ if errorlevel 1 (
 
 REM Install required dependencies
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install -r ..\requirements.txt
 
 if errorlevel 1 (
     echo Error: Failed to install dependencies
@@ -24,7 +24,7 @@ if errorlevel 1 (
 REM Build the GUI executable with clean build
 echo.
 echo Building GUI executable with PyInstaller...
-pyinstaller --onefile --windowed --name "AdvancedCalculatorGUI" calculator_gui.py --clean
+pyinstaller --onefile --windowed --name "AdvancedCalculatorGUI" ..\src\calculator_gui.py --clean
 
 if errorlevel 1 (
     echo Error: Failed to build GUI executable

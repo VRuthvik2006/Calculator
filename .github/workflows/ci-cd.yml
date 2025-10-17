@@ -161,8 +161,22 @@ jobs:
       shell: bash
       run: |
         mkdir -p release-package
-        cp dist/${{ env.PROJECT_NAME }}-* release-package/
-        cp README.md release-package/
+        
+        # Handle different file types per platform
+        if [ "${{ runner.os }}" == "macOS" ]; then
+          # macOS creates .app bundles - copy recursively
+          cp -r dist/${{ env.PROJECT_NAME }}-* release-package/
+        else
+          # Windows/Linux create single files
+          cp dist/${{ env.PROJECT_NAME }}-* release-package/
+        fi
+        
+        # Copy documentation files
+        if [ -f "docs/README.md" ]; then
+          cp docs/README.md release-package/
+        elif [ -f "README.md" ]; then
+          cp README.md release-package/
+        fi
         cp requirements.txt release-package/
         
         # Create version info

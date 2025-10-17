@@ -24,7 +24,7 @@ if errorlevel 1 (
 REM Build the executable
 echo.
 echo Building executable with PyInstaller...
-pyinstaller --onefile --name "AdvancedCalculator" --icon=calculator.ico ..\src\calculator.py
+pyinstaller --onefile --name "AdvancedCalculator" ..\src\calculator.py
 
 if errorlevel 1 (
     echo Error: Failed to build executable

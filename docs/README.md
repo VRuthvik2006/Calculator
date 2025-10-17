@@ -2,20 +2,12 @@
 
 A comprehensive calculator application with advanced mathematical functions available in both **Console** and **GUI (Pop-up Window)** versions, built in Python and compiled to standalone executables.
 
-## 🖥️ Two Versions Available
-
 ### 1. **GUI Version (Recommended)** - `AdvancedCalculatorGUI.exe`
 - **Pop-up window interface** with buttons and visual display
 - Modern, user-friendly graphical interface
 - Point-and-click operation
 - Memory and history display
 - Real-time expression preview
-
-### 2. **Console Version** - `AdvancedCalculator.exe`
-- Command-line interface
-- Menu-driven operation
-- Text-based input/output
-- Expression calculator mode
 
 ## Features
 

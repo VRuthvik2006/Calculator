@@ -99,7 +99,7 @@ jobs:
         EOF
 
     - name: Upload backup
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: scheduled-backup-${{ steps.backup-type.outputs.type }}
         path: backups/
@@ -147,7 +147,7 @@ jobs:
         echo '```' >> dependency-report.md
 
     - name: Upload dependency reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-security-report
         path: |
@@ -220,7 +220,7 @@ jobs:
         fi
 
     - name: Upload health report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: repository-health-report
         path: health-report.md

@@ -110,7 +110,7 @@ jobs:
         pyinstaller --onefile src/calculator.py --name "Calculator-Console-${{ matrix.os }}"
 
     - name: Upload console artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: calculator-console-${{ matrix.os }}
         path: |
@@ -172,7 +172,7 @@ jobs:
         echo "Commit: ${{ github.sha }}" >> release-package/build-info.txt
 
     - name: Upload GUI artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: calculator-gui-${{ runner.os }}
         path: release-package/
@@ -208,7 +208,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-reports
         path: |
@@ -253,7 +253,7 @@ jobs:
         tar -tzf "backups/${BACKUP_NAME}.tar.gz" >> backups/backup-manifest.txt
 
     - name: Upload backup artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: automated-backup
         path: backups/
